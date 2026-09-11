@@ -111,7 +111,7 @@ const Utils = (() => {
   /** Índice de clase (0 a n-1) al que pertenece un valor, dado un arreglo de cortes. */
   function indiceClase(valor, cortes) {
     for (let i = 0; i < cortes.length - 2; i++) {
-      if (valor <= cortes[i + 1]) return i;
+      if (valor < cortes[i + 1]) return i;
     }
     return cortes.length - 2;
   }
