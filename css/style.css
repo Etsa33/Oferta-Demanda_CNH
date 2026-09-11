@@ -1,0 +1,377 @@
+/* -----------------------------------------------------------------------
+   style.css — Geoportal Oferta-Demanda CNH
+   Paleta institucional MTDH: azul #2D2D93, amarillo #FFC701, fondo claro.
+   ----------------------------------------------------------------------- */
+
+:root {
+  --azul: #2D2D93;
+  --azul-oscuro: #1F1F68;
+  --amarillo: #FFC701;
+  --gris-fondo: #F5F6FA;
+  --gris-panel: #FFFFFF;
+  --gris-borde: #E1E3EC;
+  --gris-texto: #4A4A57;
+  --gris-texto-suave: #7A7A88;
+  --robos: #D97706;
+  --homicidios: #B91C1C;
+  --radio: 8px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  background: var(--gris-fondo);
+  color: var(--gris-texto);
+}
+
+/* --------------------------- Cabecera --------------------------- */
+
+.cabecera {
+  height: 64px;
+  background: var(--gris-panel);
+  border-bottom: 3px solid var(--amarillo);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.cabecera__titulo {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.cabecera__institucional img {
+  height: 34px;
+  display: block;
+}
+
+/* --------------------------- Layout general --------------------------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr 340px;
+  gap: 12px;
+  height: calc(100vh - 64px);
+  padding: 12px;
+}
+
+.panel {
+  background: var(--gris-panel);
+  border-radius: var(--radio);
+  overflow-y: auto;
+  height: 100%;
+}
+
+.panel-izquierdo, .panel-derecho {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* El panel derecho apila sus 3 gráficos con una altura fija cada uno
+   (en vez de repartir el alto disponible en tercios exactos, que podía
+   dejar el lienzo del gráfico en 0px de alto). Si los tres no caben en
+   pantalla, el propio .panel ya hace scroll (ver regla .panel arriba). */
+.panel-derecho {
+  gap: 22px;
+}
+
+.panel-central {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  overflow: hidden;
+}
+
+/* --------------------------- Bloques del panel izquierdo --------------------------- */
+
+.bloque {
+  border-bottom: 1px solid var(--gris-borde);
+  padding-bottom: 14px;
+}
+.bloque:last-child { border-bottom: none; }
+
+.bloque__titulo {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--azul-oscuro);
+  margin: 0 0 10px 0;
+}
+
+.campo-label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--gris-texto-suave);
+  margin: 8px 0 3px;
+}
+
+.campo-select {
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--gris-borde);
+  border-radius: 6px;
+  background: var(--gris-fondo);
+  font-size: 0.85rem;
+  color: var(--gris-texto);
+}
+.campo-select:disabled { color: var(--gris-texto-suave); cursor: not-allowed; }
+
+.campo-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.texto-ayuda {
+  font-size: 0.72rem;
+  color: var(--gris-texto-suave);
+  margin: 4px 0 8px;
+  line-height: 1.4;
+}
+
+.texto-contador {
+  font-size: 0.78rem;
+  color: var(--azul);
+  font-weight: 600;
+  min-height: 1em;
+  margin-bottom: 6px;
+}
+
+/* --------------------------- Botones --------------------------- */
+
+.boton {
+  border: none;
+  border-radius: 6px;
+  padding: 9px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.boton:hover { filter: brightness(0.92); }
+
+.boton--primario {
+  background: var(--azul);
+  color: #FFFFFF;
+}
+
+.boton--secundario {
+  background: var(--gris-fondo);
+  color: var(--azul);
+  border: 1px solid var(--gris-borde);
+}
+
+.boton--ancho { width: 100%; margin-top: 8px; }
+
+/* --------------------------- Panel de totales --------------------------- */
+
+.lista-scroll {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tarjeta-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: var(--gris-fondo);
+  font-size: 0.8rem;
+}
+
+.tarjeta-total--activa {
+  background: #FFF7DB;
+  border: 1px solid var(--amarillo);
+  font-weight: 700;
+}
+
+.tarjeta-total__nombre { color: var(--gris-texto); }
+.tarjeta-total__valor { color: var(--azul); font-weight: 700; }
+
+/* --------------------------- Leyenda de inseguridad --------------------------- */
+
+.leyenda { font-size: 0.78rem; }
+.leyenda-vacia { color: var(--gris-texto-suave); font-style: italic; }
+.leyenda-bloque { margin-bottom: 10px; }
+.leyenda-fila { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+.leyenda-punto {
+  width: 12px; height: 12px; border-radius: 50%;
+  display: inline-block; flex-shrink: 0;
+}
+
+/* --------------------------- Columna central --------------------------- */
+
+.total-general {
+  background: var(--azul);
+  color: #FFFFFF;
+  border-radius: var(--radio);
+  padding: 10px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.total-general__corte {
+  font-size: 0.75rem;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.mapa {
+  flex: 1;
+  border-radius: var(--radio);
+  overflow: hidden;
+  border: 1px solid var(--gris-borde);
+  min-height: 300px;
+}
+
+.herramientas-descarga {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* --------------------------- Gráficos (columna derecha) --------------------------- */
+
+.bloque-grafico {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+}
+
+.bloque-grafico__cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.bloque-grafico__cabecera h3 {
+  font-size: 0.85rem;
+  color: var(--azul-oscuro);
+  margin: 0;
+}
+
+.bloque-grafico__total {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.bloque-grafico__lienzo {
+  flex: none;
+  position: relative;
+  height: 220px;
+}
+
+.bloque-grafico__lienzo canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.grafico-vacio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: var(--gris-texto-suave);
+  font-size: 0.78rem;
+  font-style: italic;
+  padding: 10px;
+}
+
+.oculto { display: none !important; }
+
+/* --------------------------- Popups Leaflet --------------------------- */
+
+.popup-ua table { border-collapse: collapse; font-size: 0.75rem; width: 100%; }
+.popup-ua td { padding: 4px 10px 4px 0; vertical-align: top; border-bottom: 1px solid var(--gris-borde); }
+.popup-ua td:last-child { padding-right: 4px; }
+.popup-ua-label { font-weight: 700; color: var(--azul-oscuro); white-space: normal; padding-right: 14px !important; }
+.popup-ua-valor { word-break: break-word; }
+
+/* Leaflet limita el ancho del popup por defecto; le damos algo más de aire
+   interno para que el texto no quede pegado al borde de la ventanita. */
+.leaflet-popup-content { margin: 14px 18px; }
+.leaflet-popup-content-wrapper { border-radius: 8px; }
+
+.popup-seguridad { font-size: 0.8rem; line-height: 1.5; }
+
+/* --------------------------- Triángulos de Unidades de Atención --------------------------- */
+
+.ua-triangulo {
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 15px solid #0F9D8C; /* verde-teal: se distingue del azul, ámbar y rojo ya en uso */
+  filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.45));
+}
+
+.ua-triangulo--seleccionada {
+  border-left-width: 10px;
+  border-right-width: 10px;
+  border-bottom-width: 19px;
+  border-bottom-color: var(--amarillo);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55));
+}
+
+/* Etiqueta con el código de la UA, visible solo a partir de cierto zoom
+   (ver UMBRAL_ZOOM_ETIQUETA en map.js) — se activa/desactiva agregando o
+   quitando esta clase, en vez de recrear el tooltip cada vez. */
+.etiqueta-ua-codigo {
+  background: rgba(30, 30, 46, 0.82);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  box-shadow: none;
+}
+.etiqueta-ua-codigo::before { display: none; }
+.etiqueta-ua-codigo--oculta { display: none; }
+
+/* --------------------------- Logo flotante (esquina inferior derecha) --------------------------- */
+
+.logo-flotante {
+  position: fixed;
+  bottom: 10px;
+  right: 12px;
+  height: 26px;
+  opacity: 0.85;
+  z-index: 500;
+  pointer-events: none;
+}
+
+/* --------------------------- Responsive --------------------------- */
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 480px auto;
+    height: auto;
+  }
+  .panel { height: auto; max-height: 480px; }
+  .panel-central { height: 480px; }
+}
