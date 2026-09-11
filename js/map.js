@@ -1,0 +1,437 @@
+/**
+ * map.js
+ * -----------------------------------------------------------------------
+ * Todo lo relacionado con Leaflet: el mapa base, la capa territorial
+ * (coroplético de provincia, cantón o parroquia según el filtro activo),
+ * el resaltado de la entidad seleccionada, y la capa de puntos de
+ * Unidades de Atención con agrupamiento (cluster) para que 4,262 puntos
+ * no saturen el navegador.
+ * -----------------------------------------------------------------------
+ */
+
+const MapModule = (() => {
+
+  let map = null;
+  let capaTerritorial = null;   // capa GeoJSON activa (provincia | cantón | parroquia)
+  let capaResaltado = null;     // contorno de la entidad seleccionada
+  let capaUA = null;            // MarkerClusterGroup de Unidades de Atención
+  let uaVisible = false;
+  const uaSeleccionadas = new Map(); // co_siimies -> feature, para la selección por polígono
+  const marcadoresUA = [];      // referencia plana a cada marcador, para la prueba punto-en-polígono
+  let capaDibujo = null;        // FeatureGroup donde queda el polígono dibujado
+  // ~1:1.000 (aprox. zoom 19 en el ecuador, según la fórmula estándar de
+  // resolución de Web Mercator a 96 DPI) — coincide con el zoom máximo del
+  // mapa, así que a partir de este nivel siempre se ven los puntos sueltos.
+  const UMBRAL_ZOOM_ETIQUETA = 19;
+  let controlLeyendaAlertas = null;
+  let controlLeyendaSeguridad = null;
+  let controlPoligonoUA = null;
+  let categoriaActiva = 'total';   // filtro de categoría del coroplético (columna derecha)
+  let ultimoRender = null;         // {nivel, features, onClickFeature} del último renderTerritorial
+
+  const NIVEL_TEXTO = { provincia: 'provincia', canton: 'cantón', parroquia: 'parroquia' };
+
+  /** Fábrica de un control Leaflet genérico "de caja blanca" para leyendas,
+   *  igual al estilo con el que qgis2web muestra su leyenda en la esquina
+   *  superior derecha del mapa. */
+  function crearControlCaja(posicion, idContenido, htmlInicial) {
+    const Control = L.Control.extend({
+      options: { position: posicion },
+      onAdd: function () {
+        const div = L.DomUtil.create('div', 'leaflet-control control-caja-mapa');
+        div.id = idContenido;
+        div.innerHTML = htmlInicial;
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
+        return div;
+      }
+    });
+    return new Control();
+  }
+
+  function iniciar() {
+    map = L.map('mapa', {
+      center: [-1.5, -78.4],
+      zoom: 6,
+      minZoom: 5,
+      maxZoom: 19
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    // Escala gráfica + numérica en la esquina inferior izquierda, igual que en Google Maps.
+    L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map);
+
+    // Leyenda del coroplético de alertas (arriba a la derecha, dinámica).
+    controlLeyendaAlertas = crearControlCaja('topright', 'leyenda-alertas',
+      '<p class="leyenda-vacia">Cargando…</p>');
+    controlLeyendaAlertas.addTo(map);
+
+    // Leyenda de índices de inseguridad (debajo de la anterior, misma esquina).
+    controlLeyendaSeguridad = crearControlCaja('topright', 'leyenda-seguridad',
+      '<p class="leyenda-vacia">Seleccione una provincia y active un indicador para ver la leyenda.</p>');
+    controlLeyendaSeguridad.addTo(map);
+
+    // Herramienta de selección de UA por polígono (arriba a la izquierda,
+    // debajo de los controles de zoom).
+    controlPoligonoUA = crearControlCaja('topleft', 'control-poligono-ua', `
+      <p class="control-caja-mapa__titulo">Selección de UA por polígono</p>
+      <button id="btn-dibujar-poligono" class="boton boton--primario boton--ancho boton--compacto">Dibujar polígono</button>
+      <button id="btn-limpiar-seleccion-ua" class="boton boton--secundario boton--ancho boton--compacto">Limpiar selección</button>
+      <div id="ua-seleccion-contador" class="texto-contador"></div>
+    `);
+    controlPoligonoUA.addTo(map);
+
+    capaResaltado = L.geoJSON(null, {
+      style: { color: CONFIG.COLORES.amarillo, weight: 3, fillOpacity: 0, dashArray: '4,3' }
+    }).addTo(map);
+
+    capaDibujo = new L.FeatureGroup().addTo(map);
+
+    // Mostrar/ocultar la etiqueta de código de UA según el nivel de acercamiento.
+    // Se agrega un pequeño retraso: Leaflet.markercluster "desagrupa" los
+    // puntos en cúmulo un instante después de que termina el evento de zoom
+    // del mapa, así que si revisáramos la visibilidad justo en 'zoomend'
+    // encontraríamos marcadores que aún no existen en el DOM.
+    map.on('zoomend', () => setTimeout(actualizarVisibilidadEtiquetasUA, 350));
+    map.on('moveend', () => setTimeout(actualizarVisibilidadEtiquetasUA, 350));
+
+    return map;
+  }
+
+  function getMap() { return map; }
+
+  /** Etiqueta legible de la categoría actualmente elegida en el filtro. */
+  function etiquetaCategoriaActiva() {
+    const opcion = CONFIG.OPCIONES_COROPLETICO.find(o => o.id === categoriaActiva);
+    return opcion ? opcion.label : 'Total de alertas';
+  }
+
+  /** Actualiza la leyenda del coroplético de alertas (arriba a la derecha del mapa). */
+  function actualizarLeyendaAlertas(nivel, cortes) {
+    const cont = document.getElementById('leyenda-alertas');
+    if (!cont) return;
+    if (!cortes || cortes.length < 2) {
+      cont.innerHTML = '<p class="leyenda-vacia">Sin datos para mostrar.</p>';
+      return;
+    }
+    let filas = '';
+    for (let i = 0; i < cortes.length - 1; i++) {
+      const etiqueta = CONFIG.JENKS_ETIQUETAS[i] || `Clase ${i + 1}`;
+      filas += `<div class="leyenda-fila">
+                  <span class="leyenda-punto" style="background:${CONFIG.ESCALA_COROPLETICO[i]}"></span>
+                  ${etiqueta}: ${Utils.formatoNumero(Math.round(cortes[i]))} – ${Utils.formatoNumero(Math.round(cortes[i + 1]))}
+                </div>`;
+    }
+    cont.innerHTML = `<div class="leyenda-bloque"><strong>${etiquetaCategoriaActiva()}</strong>
+                       <span class="leyenda-subtitulo">por ${NIVEL_TEXTO[nivel]}</span>${filas}</div>`;
+  }
+
+  /** Construye el estilo de relleno (color) de un feature según su clase Jenks.
+   *  El borde usa un tono azul oscuro semi-transparente en vez de blanco, para
+   *  que el límite se distinga incluso sobre las clases más claras de la escala. */
+  function estiloPorClase(valor, cortes) {
+    if (valor === 0) {
+      return { fillColor: CONFIG.COLORES.sinDato, color: CONFIG.COLORES.azulOscuro, weight: 1, opacity: 0.55, fillOpacity: 0.75 };
+    }
+    const idx = Utils.indiceClase(valor, cortes);
+    return {
+      fillColor: CONFIG.ESCALA_COROPLETICO[idx] || CONFIG.ESCALA_COROPLETICO[CONFIG.ESCALA_COROPLETICO.length - 1],
+      color: CONFIG.COLORES.azulOscuro,
+      weight: 1.3,
+      opacity: 0.65,
+      fillOpacity: 0.8
+    };
+  }
+
+  /**
+   * Dibuja la capa territorial (reemplaza la anterior si existía).
+   * @param {'provincia'|'canton'|'parroquia'} nivel
+   * @param {Array} features - features ya filtrados al alcance correspondiente
+   * @param {function} onClickFeature - callback(codigo, nombre) al hacer clic
+   * @param {{mantenerVista?: boolean}} opciones - si mantenerVista es true, no
+   *   se reencuadra el mapa (se usa al solo cambiar la categoría del filtro).
+   */
+  function renderTerritorial(nivel, features, onClickFeature, opciones = {}) {
+    ultimoRender = { nivel, features, onClickFeature };
+
+    if (capaTerritorial) {
+      map.removeLayer(capaTerritorial);
+      capaTerritorial = null;
+    }
+    if (!opciones.mantenerVista) {
+      limpiarResaltado();
+    }
+
+    const campos = CONFIG.CAMPOS_TERRITORIALES[nivel];
+    const valores = features.map(f => Utils.valorSegunOpcion(f.properties, nivel, categoriaActiva));
+    const cortes = Utils.cortesJenks(valores.filter(v => v > 0), CONFIG.JENKS_CLASES);
+    actualizarLeyendaAlertas(nivel, cortes);
+
+    const coleccion = { type: 'FeatureCollection', features };
+
+    capaTerritorial = L.geoJSON(coleccion, {
+      style: (feature) => {
+        const valor = Utils.valorSegunOpcion(feature.properties, nivel, categoriaActiva);
+        return estiloPorClase(valor, cortes);
+      },
+      onEachFeature: (feature, layer) => {
+        const nombre = Utils.tituloCaso(feature.properties[campos.nombre]);
+        const codigo = feature.properties[campos.codigo];
+        const valor = Utils.valorSegunOpcion(feature.properties, nivel, categoriaActiva);
+
+        layer.bindTooltip(`<strong>${nombre}</strong><br>${etiquetaCategoriaActiva()}: ${Utils.formatoNumero(valor)}`, { sticky: true });
+
+        layer.on({
+          mouseover: (e) => e.target.setStyle({ weight: 3, opacity: 1, color: CONFIG.COLORES.azulOscuro }),
+          mouseout: (e) => capaTerritorial.resetStyle(e.target),
+          click: () => onClickFeature(codigo, nombre)
+        });
+      }
+    }).addTo(map);
+
+    if (!opciones.mantenerVista) {
+      try {
+        map.fitBounds(capaTerritorial.getBounds(), { padding: [20, 20] });
+      } catch (e) { /* colección vacía; se ignora */ }
+    }
+
+    return { cortes };
+  }
+
+  /** Se llama al cambiar el filtro de categoría (columna derecha): vuelve a
+   *  colorear el mismo nivel/alcance ya mostrado, sin reencuadrar el mapa. */
+  function actualizarCategoriaCoropletico(id) {
+    categoriaActiva = id;
+    if (ultimoRender) {
+      renderTerritorial(ultimoRender.nivel, ultimoRender.features, ultimoRender.onClickFeature, { mantenerVista: true });
+    }
+  }
+
+  /** Dibuja un contorno amarillo resaltando la entidad actualmente seleccionada. */
+  function resaltarSeleccion(nivel, feature) {
+    limpiarResaltado();
+    if (!feature) return;
+    capaResaltado.addData(feature);
+  }
+
+  function limpiarResaltado() {
+    if (capaResaltado) capaResaltado.clearLayers();
+  }
+
+  // ------------------------- Unidades de Atención -------------------------
+
+  function construirPopupUA(props) {
+    const filas = CONFIG.UA_ORDEN_CAMPOS
+      .filter(campo => props[campo] !== undefined && props[campo] !== null && props[campo] !== '')
+      .map(campo => {
+        const etiqueta = CONFIG.UA_LABELS[campo] || campo;
+        let valor = props[campo];
+        if (campo === 'link_ubi') {
+          valor = `<a href="${valor}" target="_blank" rel="noopener">Ver en Google Maps</a>`;
+        }
+        return `<tr><td class="popup-ua-label">${etiqueta}</td><td class="popup-ua-valor">${valor}</td></tr>`;
+      }).join('');
+    return `<div class="popup-ua"><table>${filas}</table></div>`;
+  }
+
+  // Íconos de triángulo (divIcon con CSS), normal y seleccionado, creados una
+  // sola vez y reutilizados en todos los marcadores para que sea eficiente.
+  const iconoUANormal = L.divIcon({
+    className: 'ua-icono-wrapper',
+    html: '<div class="ua-triangulo"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 13],
+    popupAnchor: [0, -12]
+  });
+  const iconoUASeleccionada = L.divIcon({
+    className: 'ua-icono-wrapper',
+    html: '<div class="ua-triangulo ua-triangulo--seleccionada"></div>',
+    iconSize: [20, 20],
+    iconAnchor: [10, 16],
+    popupAnchor: [0, -14]
+  });
+
+  async function inicializarCapaUA() {
+    const geojson = await DataStore.unidadesAtencion();
+
+    capaUA = L.markerClusterGroup({
+      maxClusterRadius: 45,
+      disableClusteringAtZoom: UMBRAL_ZOOM_ETIQUETA
+    });
+
+    geojson.features.forEach(feature => {
+      const [lon, lat] = feature.geometry.coordinates;
+      const codigo = feature.properties.co_siimies;
+      const marker = L.marker([lat, lon], { icon: iconoUANormal });
+      marker.bindPopup(construirPopupUA(feature.properties), { maxWidth: 340, minWidth: 260 });
+      // Etiqueta permanente con el código de la UA; se muestra solo a partir
+      // de UMBRAL_ZOOM_ETIQUETA (ver actualizarVisibilidadEtiquetasUA). Se
+      // separa un poco más del punto (offset -20) para no encimarse con el triángulo.
+      marker.bindTooltip(String(codigo), {
+        permanent: true, direction: 'top', offset: [0, -20],
+        className: 'etiqueta-ua-codigo etiqueta-ua-codigo--oculta'
+      });
+      marker._uaCodigo = codigo;
+      marker._uaFeature = feature;
+      marker._uaLatLng = [lat, lon];
+      marcadoresUA.push(marker);
+      capaUA.addLayer(marker);
+    });
+
+    map.on(L.Draw.Event.CREATED, manejarPoligonoCreado);
+
+    return capaUA;
+  }
+
+  function actualizarVisibilidadEtiquetasUA() {
+    if (!map || !capaUA) return;
+    const mostrar = map.getZoom() >= UMBRAL_ZOOM_ETIQUETA;
+    marcadoresUA.forEach(m => {
+      const tooltip = m.getTooltip();
+      if (!tooltip) return;
+      const el = tooltip.getElement();
+      if (el) el.classList.toggle('etiqueta-ua-codigo--oculta', !mostrar);
+    });
+  }
+
+  function marcarSeleccionUA(codigo, feature, seleccionar) {
+    const marker = marcadoresUA.find(m => m._uaCodigo === codigo);
+    if (!marker) return;
+    if (seleccionar) {
+      uaSeleccionadas.set(codigo, feature);
+      marker.setIcon(iconoUASeleccionada);
+    } else {
+      uaSeleccionadas.delete(codigo);
+      marker.setIcon(iconoUANormal);
+    }
+  }
+
+  // ------------------------- Búsqueda de UA por código o nombre -------------------------
+
+  /** Busca por código exacto o por coincidencia parcial (sin distinguir
+   *  mayúsculas/acentos) en el nombre. Devuelve como máximo 15 resultados. */
+  function normalizar(texto) {
+    return String(texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+
+  function buscarUA(texto) {
+    const q = normalizar(texto).trim();
+    if (!q) return [];
+    return marcadoresUA
+      .filter(m => {
+        const props = m._uaFeature.properties;
+        return normalizar(props.co_siimies).includes(q) || normalizar(props.nombre).includes(q);
+      })
+      .slice(0, 15)
+      .map(m => ({
+        codigo: m._uaCodigo,
+        nombre: m._uaFeature.properties.nombre,
+        marker: m
+      }));
+  }
+
+  /** La búsqueda puede ocurrir antes de que el usuario active la capa de UA;
+   *  esta función asegura que los datos ya estén cargados en ese caso, sin
+   *  necesidad de mostrar la capa todavía. */
+  async function buscarUAAsync(texto) {
+    if (!capaUA) {
+      await inicializarCapaUA();
+    }
+    return buscarUA(texto);
+  }
+
+  /** Muestra en el mapa una UA encontrada por la búsqueda: si está agrupada
+   *  en un clúster, Leaflet.markercluster la "revela" haciendo zoom hasta
+   *  desagruparla (es el método oficial de la librería para este caso),
+   *  y luego abre su popup. */
+  async function irAUA(marker) {
+    if (!capaUA) {
+      await inicializarCapaUA();
+    }
+    if (!map.hasLayer(capaUA)) {
+      map.addLayer(capaUA);
+    }
+    capaUA.zoomToShowLayer(marker, () => marker.openPopup());
+  }
+
+  /** Prueba punto-en-polígono por "ray casting" (sin dependencias externas).
+   *  latlng: {lat, lng}; poligono: arreglo de {lat, lng} del anillo exterior. */
+  function puntoEnPoligono(latlng, poligono) {
+    let dentro = false;
+    for (let i = 0, j = poligono.length - 1; i < poligono.length; j = i++) {
+      const xi = poligono[i].lat, yi = poligono[i].lng;
+      const xj = poligono[j].lat, yj = poligono[j].lng;
+      const interseca = ((yi > latlng.lng) !== (yj > latlng.lng)) &&
+        (latlng.lat < (xj - xi) * (latlng.lng - yi) / (yj - yi) + xi);
+      if (interseca) dentro = !dentro;
+    }
+    return dentro;
+  }
+
+  /** Activa el modo de dibujo de un polígono sobre el mapa (Leaflet.draw).
+   *  Al terminar de dibujar, selecciona todas las UA visibles cuyo punto
+   *  caiga dentro del polígono resultante. */
+  function iniciarDibujoPoligono() {
+    if (!capaUA || !map.hasLayer(capaUA)) {
+      alert('Primero activa "Mostrar Unidades de Atención" para poder seleccionarlas.');
+      return;
+    }
+    const dibujante = new L.Draw.Polygon(map, {
+      shapeOptions: { color: CONFIG.COLORES.amarillo, weight: 3, fillOpacity: 0.12 }
+    });
+    dibujante.enable();
+  }
+
+  function manejarPoligonoCreado(e) {
+    const capa = e.layer;
+    capaDibujo.clearLayers();
+    capaDibujo.addLayer(capa);
+
+    const anillo = capa.getLatLngs()[0]; // arreglo de L.LatLng
+    let seleccionadas = 0;
+    marcadoresUA.forEach(m => {
+      const latlng = m.getLatLng();
+      if (puntoEnPoligono(latlng, anillo)) {
+        marcarSeleccionUA(m._uaCodigo, m._uaFeature, true);
+        seleccionadas++;
+      }
+    });
+
+    Bus.dispatchEvent(new CustomEvent('ua:seleccion-cambio', { detail: { total: uaSeleccionadas.size } }));
+  }
+
+  function limpiarSeleccionUA() {
+    uaSeleccionadas.forEach((feature, codigo) => marcarSeleccionUA(codigo, feature, false));
+    uaSeleccionadas.clear();
+    capaDibujo.clearLayers();
+    Bus.dispatchEvent(new CustomEvent('ua:seleccion-cambio', { detail: { total: 0 } }));
+  }
+
+  function getUASeleccionadas() {
+    return Array.from(uaSeleccionadas.values());
+  }
+
+  async function toggleCapaUA(visible) {
+    if (!capaUA) {
+      await inicializarCapaUA();
+    }
+    uaVisible = visible;
+    if (visible) {
+      map.addLayer(capaUA);
+      actualizarVisibilidadEtiquetasUA();
+    } else if (map.hasLayer(capaUA)) {
+      map.removeLayer(capaUA);
+    }
+  }
+
+  return {
+    iniciar, getMap, renderTerritorial, resaltarSeleccion, limpiarResaltado,
+    toggleCapaUA, iniciarDibujoPoligono, limpiarSeleccionUA, getUASeleccionadas,
+    buscarUA: buscarUAAsync, irAUA, actualizarCategoriaCoropletico
+  };
+
+})();
