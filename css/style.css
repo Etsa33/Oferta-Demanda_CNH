@@ -1,0 +1,526 @@
+/* -----------------------------------------------------------------------
+   style.css — Geoportal Oferta-Demanda CNH
+   Línea gráfica institucional MTDH, alineada al Geoportal UA_AMENAZAS_ENOS
+   (https://etsa33.github.io/UA_AMENAZAS_ENOS/): azul #454193, amarillo
+   #FFC60A, rojo #ED1C26, morado #8A84D6, tipografía Montserrat.
+   ----------------------------------------------------------------------- */
+
+:root {
+  --azul: #454193;
+  --azul-oscuro: #35327A;
+  --azul-suave: #ECEEFB;
+  --amarillo: #FFC60A;
+  --rojo: #ED1C26;
+  --morado: #8A84D6;
+  --gris-fondo: #F4F6FB;
+  --gris-panel: #FFFFFF;
+  --gris-borde: #E3E6EF;
+  --gris-texto: #1F2330;
+  --gris-texto-suave: #5A6072;
+  --robos: #D97706;
+  --homicidios: #ED1C26;
+  --radio: 10px;
+  --sombra: 0 1px 3px rgba(20,24,60,.08), 0 4px 14px rgba(20,24,60,.05);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--gris-fondo);
+  color: var(--gris-texto);
+}
+
+/* --------------------------- Cabecera --------------------------- */
+
+.cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 20px;
+  background: var(--azul);
+  color: #FFFFFF;
+  border-bottom: 5px solid;
+  border-image: linear-gradient(90deg, var(--amarillo) 0 50%, var(--azul) 50% 75%, var(--rojo) 75% 100%) 1;
+}
+
+.cabecera__texto { min-width: 0; }
+
+.cabecera__titulo {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.cabecera__subtitulo {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+.cabecera__logo {
+  height: 46px;
+  width: auto;
+  flex: none;
+}
+
+@media (max-width: 1100px) {
+  .cabecera__titulo { font-size: 1rem; }
+  .cabecera__logo { height: 36px; }
+}
+
+/* --------------------------- Layout general --------------------------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr 340px;
+  gap: 12px;
+  height: calc(100vh - 72px);
+  padding: 12px;
+  background: var(--gris-fondo);
+}
+
+.panel {
+  background: transparent;
+  border-radius: var(--radio);
+  overflow-y: auto;
+  height: 100%;
+}
+
+.panel-izquierdo, .panel-derecho {
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-derecho {
+  gap: 16px;
+}
+
+.panel-central {
+  display: flex;
+  flex-direction: column;
+  padding: 2px;
+  overflow: hidden;
+}
+
+/* --------------------------- Bloques del panel izquierdo --------------------------- */
+
+.bloque {
+  background: var(--gris-panel);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 14px;
+}
+
+.bloque__titulo {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  margin: 0 0 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bloque__titulo::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amarillo);
+  flex: none;
+}
+
+.campo-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--gris-texto-suave);
+  margin: 8px 0 4px;
+}
+
+.campo-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #CFD4E2;
+  border-radius: 7px;
+  background: #FFFFFF;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: var(--gris-texto);
+}
+.campo-select:focus { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(69,65,147,.15); }
+.campo-select:disabled { background: #F1F2F6; color: #9AA0B0; cursor: not-allowed; }
+
+.campo-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.campo-checkbox input { accent-color: var(--azul); width: 15px; height: 15px; }
+
+.texto-ayuda {
+  font-size: 0.72rem;
+  color: var(--gris-texto-suave);
+  margin: 4px 0 8px;
+  line-height: 1.45;
+}
+
+.texto-contador {
+  font-size: 0.78rem;
+  color: var(--azul);
+  font-weight: 700;
+  min-height: 1em;
+  margin-bottom: 6px;
+}
+
+/* --------------------------- Buscador de UA --------------------------- */
+
+.campo-busqueda {
+  display: flex;
+  gap: 6px;
+}
+
+.campo-texto {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #CFD4E2;
+  border-radius: 7px;
+  background: #FFFFFF;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: var(--gris-texto);
+}
+.campo-texto:focus { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(69,65,147,.15); }
+
+.resultados-busqueda {
+  margin-top: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resultado-ua {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1.5px solid var(--gris-borde);
+  background: #FFFFFF;
+  font-size: 0.78rem;
+  color: var(--gris-texto);
+  cursor: pointer;
+  font-family: inherit;
+}
+.resultado-ua:hover { background: var(--azul-suave); border-color: var(--azul); }
+.resultado-ua strong { color: var(--azul); }
+
+.resultado-ua-vacio {
+  font-size: 0.78rem;
+  color: var(--gris-texto-suave);
+  font-style: italic;
+  padding: 4px 2px;
+}
+
+/* --------------------------- Botones --------------------------- */
+
+.boton {
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+
+.boton--primario {
+  background: var(--amarillo);
+  color: var(--azul);
+}
+.boton--primario:hover { filter: brightness(0.95); }
+
+.boton--secundario {
+  background: #FFFFFF;
+  color: var(--azul);
+  border: 1.5px solid var(--azul);
+}
+.boton--secundario:hover { background: var(--azul-suave); }
+
+.boton--ancho { width: 100%; margin-top: 8px; }
+
+/* --------------------------- Panel de totales --------------------------- */
+
+.lista-scroll {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tarjeta-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: var(--gris-fondo);
+  font-size: 0.8rem;
+}
+
+.tarjeta-total--activa {
+  background: var(--azul-suave);
+  border: 1.5px solid var(--azul);
+  font-weight: 700;
+}
+
+.tarjeta-total__nombre { color: var(--gris-texto); }
+.tarjeta-total__valor { color: var(--azul); font-weight: 700; }
+
+/* --------------------------- Leyenda de inseguridad --------------------------- */
+
+.leyenda { font-size: 0.78rem; }
+.leyenda-vacia { color: var(--gris-texto-suave); font-style: italic; margin: 0; }
+.leyenda-bloque { margin-bottom: 10px; }
+.leyenda-bloque:last-child { margin-bottom: 0; }
+.leyenda-fila { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+.leyenda-punto {
+  width: 12px; height: 12px; border-radius: 50%;
+  display: inline-block; flex-shrink: 0;
+}
+
+/* --------------------------- Controles flotantes sobre el mapa --------------------------- */
+/* Caja blanca estilo "control de Leaflet", igual al estilo .legend del
+   Geoportal UA_AMENAZAS_ENOS: leyenda de alertas, leyenda de inseguridad,
+   y la herramienta de selección de UA por polígono. */
+
+.control-caja-mapa {
+  background: #FFFFFF;
+  border-radius: 7px;
+  box-shadow: var(--sombra);
+  padding: 8px 10px;
+  font-size: 0.76rem;
+  color: var(--gris-texto);
+  max-width: 210px;
+  margin-bottom: 8px;
+}
+
+.control-caja-mapa__titulo {
+  font-weight: 700;
+  color: var(--azul);
+  text-transform: uppercase;
+  letter-spacing: .2px;
+  margin: 0 0 6px 0;
+  font-size: 0.72rem;
+}
+
+.control-caja-mapa .leyenda-bloque strong {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--azul);
+  margin-bottom: 3px;
+}
+
+.leyenda-subtitulo {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--gris-texto-suave);
+  margin-bottom: 4px;
+}
+
+.control-caja-mapa .boton--compacto {
+  padding: 6px 10px;
+  font-size: 0.74rem;
+  margin-top: 5px;
+}
+
+.control-caja-mapa .texto-contador {
+  margin-bottom: 0;
+  margin-top: 4px;
+}
+
+/* --------------------------- Columna central --------------------------- */
+
+.total-general {
+  background: var(--azul);
+  color: #FFFFFF;
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 10px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.05rem;
+  border-left: 5px solid var(--amarillo);
+}
+
+.total-general__corte {
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.mapa {
+  flex: 1;
+  border-radius: var(--radio);
+  overflow: hidden;
+  border: 1px solid var(--gris-borde);
+  min-height: 300px;
+  box-shadow: var(--sombra);
+}
+
+.herramientas-descarga {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* --------------------------- Gráficos (columna derecha) --------------------------- */
+
+.bloque-grafico {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 210px;
+  background: var(--gris-panel);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 12px 14px;
+}
+
+/* Separación entre los 3 pares de gráficos (provincia / cantón / parroquia);
+   ya no hace falta borde porque cada gráfico es su propia tarjeta. */
+.bloque-grafico--separador {
+  margin-top: 4px;
+}
+
+.bloque-grafico__cabecera {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.bloque-grafico__cabecera h3 {
+  font-size: 0.78rem;
+  color: var(--azul);
+  margin: 0;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.bloque-grafico__total {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--morado);
+}
+
+.bloque-grafico__lienzo {
+  flex: none;
+  position: relative;
+  height: 170px;
+}
+
+.bloque-grafico__lienzo canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.grafico-vacio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: var(--gris-texto-suave);
+  font-size: 0.78rem;
+  font-style: italic;
+  padding: 10px;
+}
+
+.oculto { display: none !important; }
+
+/* --------------------------- Popups Leaflet --------------------------- */
+
+.popup-ua table { border-collapse: collapse; font-size: 0.75rem; width: 100%; font-family: 'Montserrat', sans-serif; }
+.popup-ua td { padding: 4px 10px 4px 0; vertical-align: top; border-bottom: 1px solid var(--gris-borde); }
+.popup-ua td:last-child { padding-right: 4px; }
+.popup-ua-label { font-weight: 700; color: var(--azul); white-space: normal; padding-right: 14px !important; }
+.popup-ua-valor { word-break: break-word; }
+
+/* Leaflet limita el ancho del popup por defecto; le damos algo más de aire
+   interno para que el texto no quede pegado al borde de la ventanita. */
+.leaflet-popup-content { margin: 14px 18px; font-family: 'Montserrat', sans-serif; }
+.leaflet-popup-content-wrapper { border-radius: 8px; }
+
+.popup-seguridad { font-size: 0.8rem; line-height: 1.5; }
+
+/* --------------------------- Triángulos de Unidades de Atención --------------------------- */
+
+.ua-triangulo {
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 15px solid #38BDF8; /* celeste: buen contraste contra el morado/azul de la coropleta */
+  filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.45));
+}
+
+.ua-triangulo--seleccionada {
+  border-left-width: 10px;
+  border-right-width: 10px;
+  border-bottom-width: 19px;
+  border-bottom-color: var(--amarillo);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55));
+}
+
+/* Etiqueta con el código de la UA, visible solo a partir de cierto zoom
+   (ver UMBRAL_ZOOM_ETIQUETA en map.js) — se activa/desactiva agregando o
+   quitando esta clase, en vez de recrear el tooltip cada vez. */
+.etiqueta-ua-codigo {
+  background: rgba(31, 35, 48, 0.85);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: 'Montserrat', sans-serif;
+  box-shadow: none;
+}
+.etiqueta-ua-codigo::before { display: none; }
+.etiqueta-ua-codigo--oculta { display: none; }
+
+/* --------------------------- Responsive --------------------------- */
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 480px auto;
+    height: auto;
+  }
+  .panel { height: auto; max-height: 480px; }
+  .panel-central { height: 480px; }
+}
